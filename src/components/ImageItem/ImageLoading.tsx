@@ -19,7 +19,7 @@ const ImageLoading: React.FC<ViewProps> = ({style}) => (
 const styles = StyleSheet.create({
   loading: {
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
 });
 

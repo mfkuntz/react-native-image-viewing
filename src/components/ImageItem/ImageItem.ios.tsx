@@ -14,7 +14,8 @@ import {
   View,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  GestureResponderEvent,
 } from "react-native";
 
 import useDoubleTapToZoom from "../../hooks/useDoubleTapToZoom";
@@ -31,6 +32,8 @@ type Props = {
   imageSrc: ImageSource;
   onRequestClose: () => void;
   onZoom: (scaled: boolean) => void;
+  onLongPress: (image: ImageSource) => void;
+  delayLongPress: number;
   swipeToCloseEnabled?: boolean;
   doubleTapToZoomEnabled?: boolean;
   layout: Dimensions;
@@ -40,6 +43,8 @@ const ImageItem = ({
   imageSrc,
   onZoom,
   onRequestClose,
+  onLongPress,
+  delayLongPress,
   swipeToCloseEnabled = true,
   doubleTapToZoomEnabled = true,
   layout,
@@ -58,7 +63,7 @@ const ImageItem = ({
 
   const imageOpacity = scrollValueY.interpolate({
     inputRange: [-SWIPE_CLOSE_OFFSET, 0, SWIPE_CLOSE_OFFSET],
-    outputRange: [0.5, 1, 0.5]
+    outputRange: [0.5, 1, 0.5],
   });
   const imagesStyles = getImageStyles(
     imageDimensions,
@@ -87,7 +92,7 @@ const ImageItem = ({
   );
 
   const onScroll = ({
-    nativeEvent
+    nativeEvent,
   }: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = nativeEvent?.contentOffset?.y ?? 0;
 
@@ -102,6 +107,12 @@ const ImageItem = ({
     width: layout.width,
     height: layout.height,
   }), [layout]);
+  const onLongPressHandler = useCallback(
+    (event: GestureResponderEvent) => {
+      onLongPress(imageSrc);
+    },
+    [imageSrc, onLongPress]
+  );
 
   return (
     <View>
@@ -120,12 +131,14 @@ const ImageItem = ({
         onScrollEndDrag={onScrollEndDrag}
         scrollEventThrottle={1}
         {...(swipeToCloseEnabled && {
-          onScroll
+          onScroll,
         })}
       >
         {(!loaded || !imageDimensions) && <ImageLoading style={layoutStyle} />}
         <TouchableWithoutFeedback
           onPress={doubleTapToZoomEnabled ? handleDoubleTap : undefined}
+          onLongPress={onLongPressHandler}
+          delayLongPress={delayLongPress}
         >
           <Animated.Image
             source={imageSrc}

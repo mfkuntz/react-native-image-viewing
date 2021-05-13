@@ -6,13 +6,13 @@
  *
  */
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import {
   Animated,
   GestureResponderEvent,
   GestureResponderHandlers,
   NativeTouchEvent,
-  PanResponderGestureState
+  PanResponderGestureState,
 } from "react-native";
 
 import { Position, Dimensions } from "../@types";
@@ -20,7 +20,7 @@ import {
   createPanResponder,
   getDistanceBetweenTouches,
   getImageTranslate,
-  getImageDimensionsByTranslate
+  getImageDimensionsByTranslate,
 } from "../utils";
 
 
@@ -34,14 +34,18 @@ type Props = {
   onZoom: (isZoomed: boolean) => void;
   doubleTapToZoomEnabled: boolean;
   layout: Dimensions;
+  onLongPress: () => void;
+  delayLongPress: number;
 };
 
-const useZoomPanResponder = ({
+const usePanResponder = ({
   initialScale,
   initialTranslate,
   onZoom,
   doubleTapToZoomEnabled,
   layout,
+  onLongPress,
+  delayLongPress,
 }: Props): Readonly<[
   GestureResponderHandlers,
   Animated.Value,
@@ -55,7 +59,10 @@ const useZoomPanResponder = ({
   let tmpTranslate: Position | null = null;
   let isDoubleTapPerformed = false;
   let lastTapTS: number | null = null;
+  let longPressHandlerRef: number | null = null;
 
+  const MIN_DIMENSION = Math.min(layout.width, layout.width);
+  const meaningfulShift = MIN_DIMENSION * 0.01;
   const scaleValue = new Animated.Value(initialScale);
   const translateValue = new Animated.ValueXY(initialTranslate);
 
@@ -67,14 +74,14 @@ const useZoomPanResponder = ({
   const getBounds = (scale: number) => {
     const scaledImageDimensions = {
       width: imageDimensions.width * scale,
-      height: imageDimensions.height * scale
+      height: imageDimensions.height * scale,
     };
     const translateDelta = getImageTranslate(scaledImageDimensions, layout);
 
     const left = initialTranslate.x - translateDelta.x;
     const right = left - (scaledImageDimensions.width - layout.width);
     const top = initialTranslate.y - translateDelta.y;
-    const bottom = top - (scaledImageDimensions.height - layout.height);
+    const bottom = top - (scaledImageDimensions.height - layout.width);
 
     return [top, left, bottom, right];
   };
@@ -113,7 +120,21 @@ const useZoomPanResponder = ({
     return () => scaleValue.removeAllListeners();
   });
 
+  const cancelLongPressHandle = () => {
+    longPressHandlerRef && clearTimeout(longPressHandlerRef);
+  };
+
   const handlers = {
+    onGrant: (
+      _: GestureResponderEvent,
+      gestureState: PanResponderGestureState
+    ) => {
+      numberInitialTouches = gestureState.numberActiveTouches;
+
+      if (gestureState.numberActiveTouches > 1) return;
+
+      longPressHandlerRef = setTimeout(onLongPress, delayLongPress);
+    },
     onStart: (
       event: GestureResponderEvent,
       gestureState: PanResponderGestureState
@@ -125,6 +146,7 @@ const useZoomPanResponder = ({
 
       const tapTS = Date.now();
       // Handle double tap event by calculating diff between first and second taps timestamps
+
       isDoubleTapPerformed = Boolean(
         lastTapTS && tapTS - lastTapTS < DOUBLE_TAP_DELAY
       );
@@ -155,18 +177,18 @@ const useZoomPanResponder = ({
             Animated.timing(translateValue.x, {
               toValue: nextTranslate.x,
               duration: 300,
-              useNativeDriver: true
+              useNativeDriver: true,
             }),
             Animated.timing(translateValue.y, {
               toValue: nextTranslate.y,
               duration: 300,
-              useNativeDriver: true
+              useNativeDriver: true,
             }),
             Animated.timing(scaleValue, {
               toValue: nextScale,
               duration: 300,
-              useNativeDriver: true
-            })
+              useNativeDriver: true,
+            }),
           ],
           { stopTogether: false }
         ).start(() => {
@@ -183,8 +205,17 @@ const useZoomPanResponder = ({
       event: GestureResponderEvent,
       gestureState: PanResponderGestureState
     ) => {
+      const { dx, dy } = gestureState;
+
+      if (Math.abs(dx) >= meaningfulShift || Math.abs(dy) >= meaningfulShift) {
+        cancelLongPressHandle();
+      }
+
       // Don't need to handle move because double tap in progress (was handled in onStart)
-      if (doubleTapToZoomEnabled && isDoubleTapPerformed) return;
+      if (doubleTapToZoomEnabled && isDoubleTapPerformed) {
+        cancelLongPressHandle();
+        return;
+      }
 
       if (
         numberInitialTouches === 1 &&
@@ -200,6 +231,8 @@ const useZoomPanResponder = ({
         numberInitialTouches === 2 && gestureState.numberActiveTouches === 2;
 
       if (isPinchGesture) {
+        cancelLongPressHandle();
+
         const initialDistance = getDistanceBetweenTouches(initialTouches);
         const currentDistance = getDistanceBetweenTouches(
           event.nativeEvent.touches
@@ -292,6 +325,8 @@ const useZoomPanResponder = ({
       }
     },
     onRelease: () => {
+      cancelLongPressHandle();
+
       if (isDoubleTapPerformed) {
         isDoubleTapPerformed = false;
       }
@@ -302,7 +337,7 @@ const useZoomPanResponder = ({
           Animated.timing(scaleValue, {
             toValue: tmpScale,
             duration: 100,
-            useNativeDriver: true
+            useNativeDriver: true,
           }).start();
         }
 
@@ -339,19 +374,19 @@ const useZoomPanResponder = ({
           Animated.timing(translateValue.x, {
             toValue: nextTranslateX,
             duration: 100,
-            useNativeDriver: true
+            useNativeDriver: true,
           }),
           Animated.timing(translateValue.y, {
             toValue: nextTranslateY,
             duration: 100,
-            useNativeDriver: true
-          })
+            useNativeDriver: true,
+          }),
         ]).start();
 
         currentTranslate = { x: nextTranslateX, y: nextTranslateY };
         tmpTranslate = null;
       }
-    }
+    },
   };
 
   const panResponder = useMemo(() => createPanResponder(handlers), [handlers]);
@@ -359,4 +394,4 @@ const useZoomPanResponder = ({
   return [panResponder.panHandlers, scaleValue, translateValue];
 };
 
-export default useZoomPanResponder;
+export default usePanResponder;

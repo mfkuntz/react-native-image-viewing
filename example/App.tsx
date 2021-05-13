@@ -8,12 +8,13 @@
 
 import React from "react";
 import {
+  Alert,
   Platform,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 import get from "lodash/get";
 
@@ -26,6 +27,8 @@ import { architecture } from "./data/architecture";
 import { travel } from "./data/travel";
 import { city } from "./data/city";
 import { food } from "./data/food";
+
+import { ImageSource } from "../src/@types";
 
 export default function App() {
   const [currentImageIndex, setImageIndex] = React.useState(0);
@@ -44,13 +47,13 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <ImageList
-        images={travel.map(image => image.thumbnail)}
-        onPress={index => onSelect(travel, index)}
+        images={travel.map((image) => image.thumbnail)}
+        onPress={(index) => onSelect(travel, index)}
         shift={0.25}
       />
       <ImageList
-        images={architecture.map(image => image.thumbnail)}
-        onPress={index => onSelect(architecture, index)}
+        images={architecture.map((image) => image.thumbnail)}
+        onPress={(index) => onSelect(architecture, index)}
         shift={0.75}
       />
       <View style={styles.about}>
@@ -63,6 +66,7 @@ export default function App() {
         presentationStyle="overFullScreen"
         visible={isVisible}
         onRequestClose={onRequestClose}
+        onLongPress={onLongPress}
         HeaderComponent={
           images === travel
             ? ({ imageIndex }) => {
@@ -78,13 +82,13 @@ export default function App() {
         )}
       />
       <ImageList
-        images={food.map(image => image.thumbnail)}
-        onPress={index => onSelect(food, index)}
+        images={food.map((image) => image.thumbnail)}
+        onPress={(index) => onSelect(food, index)}
         shift={0.5}
       />
       <ImageList
-        images={city.map(image => image.thumbnail)}
-        onPress={index => onSelect(city, index)}
+        images={city.map((image) => image.thumbnail)}
+        onPress={(index) => onSelect(city, index)}
         shift={0.75}
       />
     </SafeAreaView>
@@ -97,19 +101,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     ...Platform.select({
       android: { paddingTop: StatusBar.currentHeight },
-      default: null
-    })
+      default: null,
+    }),
   },
   about: {
     flex: 1,
     marginTop: -12,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   name: {
     textAlign: "center",
     fontSize: 24,
     fontWeight: "200",
-    color: "#FFFFFFEE"
-  }
+    color: "#FFFFFFEE",
+  },
 });
